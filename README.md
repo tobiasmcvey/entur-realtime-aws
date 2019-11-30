@@ -168,8 +168,8 @@ These scripts send our POST requests to [Entur's API](https://www.entur.org/dev/
 The POST request uses an XML payload. Set `RequestorRef` and `ET-Client-Name` to the name of your organisation. You can reuse the unique ID `SubscriptionIdentifier` if the subscription is terminated to recover lost data. The field `MessageIdentifier` should always be a random unique ID for each type of request. 
 
 Handling responses
-* **entur-response-et-kinesis.py**
-* **entur-response-vm-kinesis.py**
+* **entur-res-et.py**
+* **entur-res-vm.py**
 
 These scripts listen to our endpoints for each topic and transforms the response data from XML to JSON, and removes the head properties from the [SIRI standard](https://en.wikipedia.org/wiki/Service_Interface_for_Real_Time_Information).
 
