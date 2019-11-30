@@ -4,7 +4,7 @@ These are examples from Entur for sending POST requests to **start** and **termi
 
 We can **start our subsription** with a POST request. I recommend using **[Postman](https://www.getpostman.com/)** to test this first.
 
-We can also **terminate a request**. This is useful when testing our architecture's ability to monitor and heal an interrupted or timed out request.
+We can also **terminate a request**. This is useful when testing our architecture's ability to monitor and restart an interrupted or timed out request.
 
 For both kinds of requests we want a unique `MessageIdentifier` for each request. We use the [uuid library](https://docs.python.org/3/library/uuid.html) in python for this, and [datetime](https://docs.python.org/3/library/datetime.html) for generating our timestamps dynamically.
 
