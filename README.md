@@ -1,6 +1,8 @@
 ## **Real-time SIRI data on AWS**
 
-We are going to stream public transport data for Norway on Amazon Web Services including the following data-types
+This is an architecture for streaming public transport data for Norway from Entur on Amazon Web Services. **[Entur](https://en-tur.no)** is the national trip-planner, ticket and transport information service provider in Norway.
+
+Entur provides the following topics for scheduled and real-time public transit information
 
 | Data-type | Contents |
 | ------------ | --------- |
@@ -8,21 +10,25 @@ We are going to stream public transport data for Norway on Amazon Web Services i
 | Situation Exchange | Text messages for end-users about departure times, specific routes and stops |
 | Vehicle Monitoring | Real-time location of public transport buses, trams and trains on their route, including deviations |
 
-**[Entur](https://www.entur.org/dev/sanntidsdata/)** supplies us with an API for these topics and allows us to extract them as separate streams and segment by supplier. The data is structured in the [SIRI](https://en.wikipedia.org/wiki/Service_Interface_for_Real_Time_Information) XML standard.
+**[Entur for Developers](https://www.entur.org/dev/sanntidsdata/)** supplies us with an API for these topics and allows us to extract them as separate streams and segment by supplier. The data is structured in the [SIRI](https://en.wikipedia.org/wiki/Service_Interface_for_Real_Time_Information) XML standard.
 
-We can narrow down the data-type for a specific area. For this example we will get data from Ruter. 
+We can narrow down the data-type for a specific area. For this example we can get data from the local provider called **[Ruter](https://ruter.no)**. 
 
-We will establish subscriptions for each data-type using an endpoint. Then we will convert it into a simpler format, JSON, to prepare it for analysis and ingestion into other streaming and database types such as Kinesis and Elasticsearch. Hopefully this will help you create similar loosely coupled microservices in [Amazon Web Services](https://aws.amazon.com/) and other cloud-based platforms like [Google Cloud](https://cloud.google.com/) and [Microsoft Azure](https://azure.microsoft.com/).
+Here are the steps: 
+
+We will establish subscriptions for each data-type using a separate endpoint for each data-type. Then we will convert it into a simpler format, JSON, to prepare it for analysis and ingestion into other streaming and database types such as Kinesis, Elasticsearch or any other service of choice. 
+
+Hopefully this will help you create similar loosely coupled microservices in [Amazon Web Services](https://aws.amazon.com/) and other cloud-based platforms like [Google Cloud](https://cloud.google.com/) and [Microsoft Azure](https://azure.microsoft.com/).
 
 Enjoy!
 
 ### **Components**
 
-* [API Gateway](https://aws.amazon.com/api-gateway/)
-* [Lambda](https://aws.amazon.com/lambda/)
-* [Cloudwatch](https://aws.amazon.com/cloudwatch/) [Logs, Metrics and Alarms](https://aws.amazon.com/cloudwatch/features/)
-* [Kinesis](https://aws.amazon.com/kinesis/)
-* [Simple Notification Service (SNS)](https://aws.amazon.com/sns/)
+* [API Gateway](https://aws.amazon.com/api-gateway/) for our endpoints and API management
+* [Lambda](https://aws.amazon.com/lambda/) for starting subscriptions and handling responses from Entur
+* [Cloudwatch](https://aws.amazon.com/cloudwatch/) [Logs, Metrics and Alarms](https://aws.amazon.com/cloudwatch/features/) for logging, debugging and alarms when our subscriptions time out
+* [Kinesis](https://aws.amazon.com/kinesis/) for streaming our data into other services of choice
+* [Simple Notification Service (SNS)](https://aws.amazon.com/sns/) for notifying our lambda functions when we need to restart a subscription
 
 ### **Architecture**
 
@@ -37,7 +43,7 @@ Enjoy!
 5. SNS topics for each data-type
 6. Cloudwatch Metrics and Alarms for each data-type
 
-We recommend setting up enough resources to handle each data-type separately, since it is possible that only one data-type subscription gets terminated. We want the architecture to continue running on any healthy subscriptions, and to restart only when one is terminated.
+We recommend setting up enough resources to handle each data-type separately, since it is possible that only one data-type subscription gets terminated. We want the architecture to continue running on any active subscriptions, and to restart only when one is terminated.
 
 ### **How it works**
 
@@ -75,9 +81,9 @@ The API Gateway is also a trigger for our lambda function's code, so the code wi
 
 This is the step where we will convert the data from the public standard SIRI XML format into a simpler JSON object format. We can simply convert it into JSON, or flatten it and remove SIRI head properties as well. 
 
-After the data is ready, we send it to Kinesis for processing and storage. 
+After the data is ready, we send it to Kinesis so it can be streamed to other services of choice. 
 
-To do this you need a policy and a suitable role for executing lambda, using Cloudwatch logs and Kinesis.
+To do this you need a policy and a suitable role for executing lambda, using Cloudwatch logs and Kinesis. I recommend creating a custom role for this with limited scopes.
 
 We also log both the converted dataset and the `HeartbeatNotification` from Entur. The heartbeat tells us that the subscription is active and the timestamp for when Entur sends us their response. We use this in our next step for monitoring.
 
@@ -145,14 +151,29 @@ To do this, setup an SNS topic in the console and create a subscription. Set the
 
 For this final step we want to point the SNS topic to the first lambda function that sends the POST request to Entur. 
 
-These last 2 steps provide us with a monitoring and "healing" component to our microservice architecture. Instead of losing data, we can restart the subscription using the same ID and get any lost data upon the next delivery from Entur. 
+These last 2 steps provide us with a monitoring and automation component to our microservice architecture. Instead of losing data, we can restart the subscription using the same ID and get any lost data upon the next delivery from Entur. 
 
 
 #### **Example requests**
 
-To test the API see the [Example requests section](https://github.com/tobmcv/Real-time-SIRI-data-on-AWS/tree/master/example-requests).
+To test the API see the [Example requests section](https://github.com/tobmcv/Real-time-SIRI-data-on-AWS/tree/master/example-requests) for example code to run in AWS lambda and an explanation of the Siri XML responses.
 
+POST requests
+* **entur-sub-et.py**
+* **entur-sub-vm.py**
+Code for Lambda functions to subscribe to and collect data from entur.org/dev/sanntidsdata
 
+These scripts send our POST requests to [Entur's API](https://www.entur.org/dev/sanntidsdata/) for real-time data so we can start a subscription for a topic. The examples are for the topics **Vehicle Monitoring** and **Estimated Timetable**.
+
+The POST request uses an XML payload. Set `RequestorRef` and `ET-Client-Name` to the name of your organisation. You can reuse the unique ID `SubscriptionIdentifier` if the subscription is terminated to recover lost data. The field `MessageIdentifier` should always be a random unique ID for each type of request. 
+
+Handling responses
+* **entur-response-et-kinesis.py**
+* **entur-response-vm-kinesis.py**
+
+These scripts listen to our endpoints for each topic and transforms the response data from XML to JSON, and removes the head properties from the [SIRI standard](https://en.wikipedia.org/wiki/Service_Interface_for_Real_Time_Information).
+
+The script also has a function for posting data straight to a Kinesis data stream in AWS, and handling for the `HeartbeatNotification`. This can be watched to monitor the health of a subscription, or replaced with another service of choice.
 
 
 **With thanks to**
