@@ -18,6 +18,8 @@ Here are the steps:
 
 We will establish subscriptions for each data-type using a separate endpoint for each data-type. Then we will convert it into a simpler format, JSON, to prepare it for analysis and ingestion into other streaming and database types such as Kinesis, Elasticsearch or any other service of choice. 
 
+API Gateway expects JSON so we **need** a mapping template to turn the XML into a JSON object.
+
 Hopefully this will help you create similar loosely coupled microservices in [Amazon Web Services](https://aws.amazon.com/) and other cloud-based platforms like [Google Cloud](https://cloud.google.com/) and [Microsoft Azure](https://azure.microsoft.com/).
 
 Enjoy!
